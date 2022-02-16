@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using LinqToDB;
+using System;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ClassLibrary2
@@ -24,6 +21,7 @@ namespace ClassLibrary2
         bool isCtrlPressed = false; // для Ctrl+C, Ctrl+V сочетания
         CopyFileInfo copiedFile; // сохраняет путь к файлу скопировано Ctrl+C 
 
+        public DataContext dataContext = new DataContext(Connect.ProviderName, Connect.Connectbd);
 
 
         public System.Windows.Forms.ListBox ListBox1
@@ -169,11 +167,37 @@ namespace ClassLibrary2
             catch (Exception ex) { }
 
 
+        }
 
 
+        public void treeView1_After(TreeViewEventArgs e)
+        {
+            e.Node.Nodes.Clear();
+            string[] dirs;
+            try
+            {
+                if (Directory.Exists(e.Node.FullPath))
+                {
+                    dirs = Directory.GetDirectories(e.Node.FullPath);
+                    if (dirs.Length != 0)
+                    {
+                        for (int i = 0; i < dirs.Length; i++)
+                        {
+                            TreeNode dirNode = new TreeNode(new DirectoryInfo(dirs[i]).Name);
+                            FillTreeNode(dirNode, dirs[i]);
+                            e.Node.Nodes.Add(dirNode);
+                        }
+                    }
+                }
+            }
+
+            catch (Exception ex) { }
 
 
         }
+
+
+
 
         public void deletebtn()
         {
@@ -225,6 +249,7 @@ namespace ClassLibrary2
                     TreeNode driveNode = new TreeNode { Text = drive.Name };
                     FillTreeNode(driveNode, drive.Name);
                     treeView1.Nodes.Add(driveNode);
+
                 }
             }
             catch (Exception ex) { }
@@ -236,11 +261,16 @@ namespace ClassLibrary2
             try
             {
                 string[] dirs = Directory.GetDirectories(path);
+                int categoryid = new Random().Next();
+                dataContext.Insert<Catalog>(new Catalog() { Id = categoryid, Name = path });
                 foreach (string dir in dirs)
                 {
+                    int idelement = new Random().Next();
                     TreeNode dirNode = new TreeNode();
                     dirNode.Text = dir.Remove(0, dir.LastIndexOf("\\") + 1);
                     driveNode.Nodes.Add(dirNode);
+                    dataContext.Insert<Files>(new Files() { Id = idelement,NameFile= dirNode.Text,CatalogId=categoryid,PathFile=dir,Type="txt" });
+
                 }
             }
             catch (Exception ex) { }
