@@ -3,6 +3,8 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using LinqToDB.Data;
+using System.Linq;
 
 namespace ClassLibrary2
 {
@@ -21,7 +23,7 @@ namespace ClassLibrary2
         bool isCtrlPressed = false; // для Ctrl+C, Ctrl+V сочетания
         CopyFileInfo copiedFile; // сохраняет путь к файлу скопировано Ctrl+C 
 
-        public DataContext dataContext = new DataContext(Connect.ProviderName, Connect.Connectbd);
+        public DataConnection dataContext = new DataConnection(Connect.ProviderName, Connect.Connectbd);
 
 
         public System.Windows.Forms.ListBox ListBox1
@@ -115,6 +117,11 @@ namespace ClassLibrary2
                     Path.Combine(copiedFile.filepath, copiedFile.filename),
                     Path.Combine(target_path, copiedFile.filename)
                 );
+
+                (from u in dataContext.GetTable<Files>()
+                 where u.NameFile.Contains(copiedFile.filename)
+                 select u).Delete();
+
                 // Удалить оригинальный файл в исходном пути
                 File.Delete(Path.Combine(copiedFile.filepath, copiedFile.filename));
 
@@ -204,6 +211,17 @@ namespace ClassLibrary2
             string selected_filename = listBox1.SelectedItem.ToString();
             string current_path = treeView1.SelectedNode.FullPath;
 
+            //delete
+            (from u in dataContext.GetTable<Files>()
+             where u.NameFile.Contains(selected_filename)
+             select u).Delete();
+
+
+
+
+
+            //dataContext.Delete<Files>(new Files() {NameFile=selected_filename });
+
 
             if (!String.IsNullOrEmpty(selected_filename))
                 File.Delete(Path.Combine(current_path, selected_filename));
@@ -219,13 +237,53 @@ namespace ClassLibrary2
         {
             try
             {
+                //exists category id
+                var querycategory = (from u in dataContext.GetTable<Catalog>()
+                             where u.Name.Contains(p)
+                             select u);
+                var existscategory = querycategory.Any();
+                int categoryid;
+
+                if (existscategory)
+                {
+                    categoryid = (from u in dataContext.GetTable<Catalog>()
+                                  where u.Name.Contains(p)
+                                  select u.Id).First();
+
+
+                }
+                else
+                {
+                 categoryid = new Random().Next();
+                 dataContext.Insert<Catalog>(new Catalog() { Id = categoryid, Name = p });
+                }
+                
+                
+                
+                
+                
                 String[] fileList = System.IO.Directory.GetFiles(p);
                 String fileName;
                 System.Collections.IEnumerator myEnum = fileList.GetEnumerator();
                 while (myEnum.MoveNext())
                 {
+                  
+
+                    int idelement = new Random().Next();
+
                     fileName = myEnum.Current.ToString();
                     this.listBox1.Items.Add(System.IO.Path.GetFileName(fileName));
+
+                    //exists file
+                    var queryfilename = (
+                                        from u in dataContext.GetTable<Files>()
+                                        where u.NameFile.Contains(System.IO.Path.GetFileName(fileName))
+                                        select u
+                                        ).Any();
+
+
+                    if(!queryfilename)
+                    dataContext.Insert<Files>(new Files() { Id = idelement, NameFile = System.IO.Path.GetFileName(fileName), CatalogId = categoryid, PathFile = System.IO.Path.GetFullPath(fileName), Type = new FileInfo(fileName).Extension });
 
 
                 }
@@ -261,15 +319,13 @@ namespace ClassLibrary2
             try
             {
                 string[] dirs = Directory.GetDirectories(path);
-                int categoryid = new Random().Next();
-                dataContext.Insert<Catalog>(new Catalog() { Id = categoryid, Name = path });
+               
                 foreach (string dir in dirs)
                 {
                     int idelement = new Random().Next();
                     TreeNode dirNode = new TreeNode();
                     dirNode.Text = dir.Remove(0, dir.LastIndexOf("\\") + 1);
                     driveNode.Nodes.Add(dirNode);
-                    dataContext.Insert<Files>(new Files() { Id = idelement,NameFile= dirNode.Text,CatalogId=categoryid,PathFile=dir,Type="txt" });
 
                 }
             }
